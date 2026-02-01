@@ -195,8 +195,8 @@ export function initWebGLBackground(canvas: HTMLCanvasElement): (() => void) | n
     ),
   };
 
-  // Theme colors defined in JS to match CSS variables
-  // Light theme (default)
+  // Theme colors defined in JS - mirrors CSS variables
+  // Light theme
   const LIGHT_THEME = {
     bg: [1.0, 1.0, 1.0],      // #ffffff
     dot: [0.333, 0.333, 0.333] // #555555
@@ -208,78 +208,28 @@ export function initWebGLBackground(canvas: HTMLCanvasElement): (() => void) | n
     dot: [0.667, 0.667, 0.667] // #aaaaaa
   };
 
-  // Parse a CSS color string (hex or rgb()) into normalized [r, g, b]
-  function parseCSSColor(raw: string): [number, number, number] | null {
-    const s = raw.trim();
-    
-    // Match #RGB, #RRGGBB
-    const hex = s.match(/^#([0-9a-f]{3,6})$/i);
-    if (hex) {
-      let h = hex[1];
-      if (h.length === 3) h = h[0]+h[0]+h[1]+h[1]+h[2]+h[2];
-      return [
-        parseInt(h.slice(0, 2), 16) / 255,
-        parseInt(h.slice(2, 4), 16) / 255,
-        parseInt(h.slice(4, 6), 16) / 255,
-      ];
-    }
-    
-    // Match rgb(r, g, b) or rgba(r, g, b, a)
-    const rgb = s.match(/rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)/);
-    if (rgb) {
-      return [parseInt(rgb[1]) / 255, parseInt(rgb[2]) / 255, parseInt(rgb[3]) / 255];
-    }
-    
-    return null;
-  }
-
   // Get current system color scheme preference
   function getSystemColorScheme(): "light" | "dark" {
     return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
   }
 
-  // Get theme colors from CSS variables, with fallback to JS theme
+  // Get theme colors based on system preference
   function getThemeColors() {
-    // Try to read from computed style (this may not respect dark mode on :root)
-    const style = getComputedStyle(document.documentElement);
-    const bgRaw = style.getPropertyValue("--color-bg").trim();
-    const dotRaw = style.getPropertyValue("--color-dot").trim();
-    
-    const bgParsed = bgRaw ? parseCSSColor(bgRaw) : null;
-    const dotParsed = dotRaw ? parseCSSColor(dotRaw) : null;
-    
-    // If CSS parsing fails, use JS theme based on system preference
     const isDark = getSystemColorScheme() === "dark";
     const theme = isDark ? DARK_THEME : LIGHT_THEME;
     
-    const bg = bgParsed || theme.bg;
-    const dot = dotParsed || theme.dot;
-    
-    // Debug logging
-    if (process.env.NODE_ENV === "development") {
-      console.log('[WebGL] Theme:', isDark ? 'dark' : 'light');
-      console.log('[WebGL] CSS bg:', bgRaw, '->', bg);
-      console.log('[WebGL] CSS dot:', dotRaw, '->', dot);
-    }
-    
     return { 
-      bgR: bg[0], bgG: bg[1], bgB: bg[2], 
-      dotR: dot[0], dotG: dot[1], dotB: dot[2] 
+      bgR: theme.bg[0], bgG: theme.bg[1], bgB: theme.bg[2], 
+      dotR: theme.dot[0], dotG: theme.dot[1], dotB: theme.dot[2] 
     };
   }
 
-  let themeColors = getThemeColors();
-
-  // Listen for color scheme changes and update theme
+  // Listen for color scheme changes
   const colorSchemeQuery = window.matchMedia("(prefers-color-scheme: dark)");
-  const onColorSchemeChange = () => {
-    // Defer to next frame to sync with any CSS transitions
-    requestAnimationFrame(() => {
-      themeColors = getThemeColors();
-      if (process.env.NODE_ENV === "development") {
-        console.log('[WebGL] System theme changed to:', getSystemColorScheme());
-      }
-    });
+  let currentIsDark = colorSchemeQuery.matches;
+  
+  const onColorSchemeChange = (e: MediaQueryListEvent) => {
+    currentIsDark = e.matches;
   };
   colorSchemeQuery.addEventListener("change", onColorSchemeChange);
 
@@ -326,9 +276,12 @@ export function initWebGLBackground(canvas: HTMLCanvasElement): (() => void) | n
     resize();
     const time = performance.now() / 1000 - t0;
 
+    // Read theme colors fresh each frame to detect changes
+    const themeColors = getThemeColors();
+
     gl!.bindVertexArray(quadVao);
 
-    // Pass 1: Render dots (white bg + colored dots) to fbA
+    // Pass 1: Render dots (bg + colored dots) to fbA
     gl!.bindFramebuffer(gl!.FRAMEBUFFER, fbA.framebuffer);
     gl!.viewport(0, 0, width, height);
     gl!.useProgram(dotProgram);
