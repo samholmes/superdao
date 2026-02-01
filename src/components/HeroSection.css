@@ -44,4 +44,5 @@
   margin: 0.5rem 0 0 0;
   color: var(--color-fg);
   text-transform: lowercase;
+  opacity: 0.8;
 }
