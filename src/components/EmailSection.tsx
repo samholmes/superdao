@@ -5,12 +5,23 @@ export default function EmailSection() {
   const [email, setEmail] = createSignal("");
   const [submitted, setSubmitted] = createSignal(false);
 
-  const handleSubmit = (e: Event) => {
+  const handleSubmit = async (e: Event) => {
     e.preventDefault();
     if (email()) {
-      setSubmitted(true);
-      // TODO: Send email to backend
-      console.log("Email submitted:", email());
+      const formUrl = 'https://docs.google.com/forms/d/e/1FAIpQLSewU30SE7DVtakyaVJFbCshiyPRL7dA4xe6kq5fEuSCxlI65A/formResponse';
+      const formData = new FormData();
+      formData.append('entry.1226568355', email());
+      
+      try {
+        await fetch(formUrl, {
+          method: 'POST',
+          mode: 'no-cors',
+          body: formData
+        });
+        setSubmitted(true);
+      } catch (error) {
+        console.error('Submission error:', error);
+      }
     }
   };
 
