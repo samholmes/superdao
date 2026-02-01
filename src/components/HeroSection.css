@@ -20,11 +20,11 @@
   text-transform: none;
   background: linear-gradient(
     90deg,
-    rgba(0, 0, 0, 1) 0%,
-    rgba(0, 0, 0, 1) 40%,
-    rgba(0, 0, 0, 0.5) 50%,
-    rgba(0, 0, 0, 1) 60%,
-    rgba(0, 0, 0, 1) 100%
+    var(--color-fg) 0%,
+    var(--color-fg) 40%,
+    var(--color-fg-subtle) 50%,
+    var(--color-fg) 60%,
+    var(--color-fg) 100%
   );
   background-size: 300% 100%;
   background-clip: text;
@@ -42,6 +42,6 @@
   font-size: clamp(1rem, 3vw, 2rem);
   letter-spacing: normal;
   margin: 0.5rem 0 0 0;
-  color: black;
+  color: var(--color-fg);
   text-transform: lowercase;
 }

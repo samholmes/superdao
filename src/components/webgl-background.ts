@@ -22,16 +22,15 @@ uniform vec2 u_resolution;
 
 uniform vec3 u_dotCenter[${DOT_COUNT}];  // xy = center (0-1), z = orbitRadius (0-1)
 uniform vec4 u_dotParams[${DOT_COUNT}];  // x = startAngle, y = speed, z = opacity, w = dotRadius (0-1)
+uniform vec3 u_bgColor;
+uniform vec3 u_dotColor;
 
 void main() {
   vec2 fragPos = v_uv * u_resolution;
   float minDim = min(u_resolution.x, u_resolution.y);
 
-  // #555 = rgb(85, 85, 85) normalized
-  vec3 dotColor = vec3(0.333, 0.333, 0.333);
-
-  // Start with white background
-  vec3 result = vec3(1.0);
+  vec3 dotColor = u_dotColor;
+  vec3 result = u_bgColor;
 
   for (int i = 0; i < ${DOT_COUNT}; i++) {
     float angle = u_dotParams[i].x + u_time * u_dotParams[i].y;
@@ -186,6 +185,8 @@ export function initWebGLBackground(canvas: HTMLCanvasElement): (() => void) | n
   const dotU = {
     time: gl.getUniformLocation(dotProgram, "u_time"),
     resolution: gl.getUniformLocation(dotProgram, "u_resolution"),
+    bgColor: gl.getUniformLocation(dotProgram, "u_bgColor"),
+    dotColor: gl.getUniformLocation(dotProgram, "u_dotColor"),
     dotCenter: Array.from({ length: DOT_COUNT }, (_, i) =>
       gl.getUniformLocation(dotProgram, `u_dotCenter[${i}]`)
     ),
@@ -193,6 +194,47 @@ export function initWebGLBackground(canvas: HTMLCanvasElement): (() => void) | n
       gl.getUniformLocation(dotProgram, `u_dotParams[${i}]`)
     ),
   };
+
+  // Parse a CSS color string (hex or rgb()) into normalized [r, g, b]
+  function parseCSSColor(raw: string): [number, number, number] {
+    const s = raw.trim();
+    // Match #RGB, #RRGGBB
+    const hex = s.match(/^#([0-9a-f]{3,8})$/i);
+    if (hex) {
+      let h = hex[1];
+      if (h.length === 3) h = h[0]+h[0]+h[1]+h[1]+h[2]+h[2];
+      return [
+        parseInt(h.slice(0, 2), 16) / 255,
+        parseInt(h.slice(2, 4), 16) / 255,
+        parseInt(h.slice(4, 6), 16) / 255,
+      ];
+    }
+    // Match rgb(r, g, b) or rgba(r, g, b, a)
+    const rgb = s.match(/rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)/);
+    if (rgb) {
+      return [parseInt(rgb[1]) / 255, parseInt(rgb[2]) / 255, parseInt(rgb[3]) / 255];
+    }
+    return [1, 1, 1]; // fallback white
+  }
+
+  function getThemeColors() {
+    const style = getComputedStyle(document.documentElement);
+    const bg = parseCSSColor(style.getPropertyValue("--color-bg"));
+    const dot = parseCSSColor(style.getPropertyValue("--color-dot"));
+    return { bgR: bg[0], bgG: bg[1], bgB: bg[2], dotR: dot[0], dotG: dot[1], dotB: dot[2] };
+  }
+
+  let themeColors = getThemeColors();
+
+  // Listen for color scheme changes and re-read CSS variables
+  const colorSchemeQuery = window.matchMedia("(prefers-color-scheme: dark)");
+  const onColorSchemeChange = () => {
+    // Defer to next frame so browser has applied new CSS values
+    requestAnimationFrame(() => {
+      themeColors = getThemeColors();
+    });
+  };
+  colorSchemeQuery.addEventListener("change", onColorSchemeChange);
 
   const blurU = {
     texture: gl.getUniformLocation(blurProgram, "u_texture"),
@@ -245,6 +287,8 @@ export function initWebGLBackground(canvas: HTMLCanvasElement): (() => void) | n
     gl!.useProgram(dotProgram);
     gl!.uniform1f(dotU.time, time);
     gl!.uniform2f(dotU.resolution, width, height);
+    gl!.uniform3f(dotU.bgColor, themeColors.bgR, themeColors.bgG, themeColors.bgB);
+    gl!.uniform3f(dotU.dotColor, themeColors.dotR, themeColors.dotG, themeColors.dotB);
 
     for (let i = 0; i < DOT_COUNT; i++) {
       gl!.uniform3f(dotU.dotCenter[i], dots[i].centerX, dots[i].centerY, dots[i].orbitRadius);
@@ -288,5 +332,6 @@ export function initWebGLBackground(canvas: HTMLCanvasElement): (() => void) | n
 
   return () => {
     cancelAnimationFrame(animationId);
+    colorSchemeQuery.removeEventListener("change", onColorSchemeChange);
   };
 }

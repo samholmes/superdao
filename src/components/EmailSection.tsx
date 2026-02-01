@@ -18,7 +18,7 @@ export default function EmailSection() {
     <section class="email-section">
       <div class="email-content">
         <h2 class="email-title">Get Early Access</h2>
-        <p class="email-subtitle">By invitation only. Reserve your spot.</p>
+        <p class="email-subtitle">Join the waitlist</p>
         
         {!submitted() ? (
           <form class="email-form" onSubmit={handleSubmit}>
