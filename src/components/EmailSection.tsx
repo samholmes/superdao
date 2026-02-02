@@ -29,7 +29,7 @@ export default function EmailSection() {
     <section class="email-section">
       <div class="email-content">
         <h2 class="email-title">Get Early Access</h2>
-        <p class="email-subtitle">Join the waitlist</p>
+        <p class="email-subtitle">Be apart of something super.</p>
         
         {!submitted() ? (
           <form class="email-form" onSubmit={handleSubmit}>
