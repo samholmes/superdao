@@ -47,7 +47,7 @@ export default function EmailSection() {
           </form>
         ) : (
           <div class="success-message">
-            <p>Welcome aboard. We'll notify you when it's your turn.</p>
+            <p>You're in. We'll notify you. Be ready.</p>
           </div>
         )}
       </div>
