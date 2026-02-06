@@ -1,5 +1,8 @@
-import { createSignal, createMemo } from 'solid-js';
+import { createSignal, createMemo, onMount } from 'solid-js';
 import { MOCK_TASKS, Task, TaskState, Outcome } from '~/components/alpha/types';
+import { walletStore } from '~/lib/wallet';
+import { getWalletClient, getPublicClient, CONTRACT_ADDRESSES, ZOON_ABI, anvil } from '~/lib/contracts';
+import { parseEther } from 'viem';
 
 export default function DashboardPage() {
   const [activeTab, setActiveTab] = createSignal<'tasks' | 'proposals' | 'outcomes'>('tasks');
@@ -7,30 +10,82 @@ export default function DashboardPage() {
   const [newTaskTitle, setNewTaskTitle] = createSignal('');
   const [newTaskDescription, setNewTaskDescription] = createSignal('');
   const [newTaskReward, setNewTaskReward] = createSignal('100');
+  const [isCreating, setIsCreating] = createSignal(false);
+  const [error, setError] = createSignal<string | null>(null);
 
   const activeTasks = createMemo(() => MOCK_TASKS.filter(t => t.state === 'Active'));
   const proposedTasks = createMemo(() => MOCK_TASKS.filter(t => t.state === 'Proposed'));
   const allOutcomes = createMemo(() => MOCK_TASKS.flatMap(t => t.outcomes));
 
-  const handleCreateTask = (e: Event) => {
+  const handleCreateTask = async (e: Event) => {
     e.preventDefault();
-    // Mock task creation
-    console.log('Creating task:', {
-      title: newTaskTitle(),
-      description: newTaskDescription(),
-      reward: newTaskReward()
-    });
-    setShowCreateForm(false);
-    setNewTaskTitle('');
-    setNewTaskDescription('');
-    setNewTaskReward('100');
+    
+    if (!walletStore.isConnected()) {
+      setError('Please connect your wallet first');
+      return;
+    }
+
+    if (!CONTRACT_ADDRESSES.zoon) {
+      setError('Zoon contract not found. Please check configuration.');
+      return;
+    }
+
+    setIsCreating(true);
+    setError(null);
+
+    try {
+      const walletClient = getWalletClient();
+      if (!walletClient) throw new Error('Wallet client not available');
+
+      const [account] = await walletClient.getAddresses();
+      
+      // Create task with 7-day deadline and Majority voting (1)
+      const deadline = Math.floor(Date.now() / 1000) + (7 * 24 * 60 * 60);
+      const zeitBudget = parseEther(newTaskReward());
+
+      const hash = await walletClient.writeContract({
+        address: CONTRACT_ADDRESSES.zoon,
+        abi: ZOON_ABI,
+        functionName: 'createTask',
+        args: [newTaskDescription(), zeitBudget, BigInt(deadline), 1], // 1 = Majority voting
+        account,
+        chain: anvil,
+      });
+
+      console.log('Task created! Transaction:', hash);
+      
+      // Reset form
+      setShowCreateForm(false);
+      setNewTaskTitle('');
+      setNewTaskDescription('');
+      setNewTaskReward('100');
+      
+      // TODO: Refresh task list
+    } catch (err: any) {
+      console.error('Task creation failed:', err);
+      setError(err.message || 'Failed to create task');
+    } finally {
+      setIsCreating(false);
+    }
   };
 
-  const handleVote = (taskId: number, outcomeId: number) => {
+  const handleVote = async (taskId: number, outcomeId: number) => {
+    if (!walletStore.isConnected()) {
+      setError('Please connect your wallet first');
+      return;
+    }
+    
+    // TODO: Implement voting
     console.log('Voting for outcome:', outcomeId, 'on task:', taskId);
   };
 
-  const handlePropose = (taskId: number) => {
+  const handlePropose = async (taskId: number) => {
+    if (!walletStore.isConnected()) {
+      setError('Please connect your wallet first');
+      return;
+    }
+    
+    // TODO: Implement proposal support
     console.log('Supporting proposal:', taskId);
   };
 

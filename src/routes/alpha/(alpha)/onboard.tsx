@@ -1,10 +1,15 @@
 import { createSignal } from 'solid-js';
 import { Founder, GovernanceParams, VotingType } from '~/components/alpha/types';
+import { walletStore } from '~/lib/wallet';
+import { getWalletClient, anvil, CONTRACT_ADDRESSES, saveContractAddresses } from '~/lib/contracts';
+import { type Address } from 'viem';
 
 export default function OnboardPage() {
   const [step, setStep] = createSignal(1);
   const [isDeploying, setIsDeploying] = createSignal(false);
   const [deploySuccess, setDeploySuccess] = createSignal(false);
+  const [deployedAddress, setDeployedAddress] = createSignal<Address | null>(null);
+  const [error, setError] = createSignal<string | null>(null);
   
   // Form states
   const [daoName, setDaoName] = createSignal('');
@@ -36,10 +41,34 @@ export default function OnboardPage() {
   };
 
   const handleDeploy = async () => {
+    if (!walletStore.isConnected()) {
+      setError('Please connect your wallet first');
+      return;
+    }
+
     setIsDeploying(true);
-    await new Promise(resolve => setTimeout(resolve, 2000));
-    setIsDeploying(false);
-    setDeploySuccess(true);
+    setError(null);
+
+    try {
+      // For MVP, we're using the already-deployed Zoon contract
+      // In production, this would deploy a new Zoon instance per DAO
+      const zoonAddress = CONTRACT_ADDRESSES.zoon;
+      
+      if (!zoonAddress) {
+        throw new Error('Zoon contract not deployed. Please deploy contracts first.');
+      }
+
+      // For now, just join the existing Zoon network
+      // TODO: In production, deploy new Zoon contract here
+      
+      setDeployedAddress(zoonAddress);
+      setDeploySuccess(true);
+    } catch (err: any) {
+      console.error('Deployment failed:', err);
+      setError(err.message || 'Deployment failed');
+    } finally {
+      setIsDeploying(false);
+    }
   };
 
   const totalInitialZeit = () => {
